@@ -285,7 +285,6 @@ class Bishop(Piece):
     def get_moves(self, chessboard):
         possible_moves = []
         for x in range(8):
-            print("X: " + str(x + 1))
             move = self.check_if_valid_move([(x + 1, x + 1)])  # Going UpRight
             if len(move) > 0:
                 move = move[0]
