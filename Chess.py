@@ -21,13 +21,11 @@ class FileIO:
     def parse_input(self, line):
         if re.match('[KQBRNP][ld][a-h][1-8]', line):
             piece = self.line_to_piece(line[:4])
-            print('Placed: ' + line)
-
             for square in Chessboard.chess_board:
                 if square.get_loc() == line[2:4]:
                     square.set_piece(piece)
                     get_square(line[2:4]).set_piece(piece)
-
+            return False
         elif re.match('\s*[a-h][1-8]\s+[a-h][1-8]\*?$', line):
             move_from = line.split()[0].strip()
             move_to = line.split()[1].strip()
@@ -38,10 +36,13 @@ class FileIO:
                 move_to = move_to.replace('*', '')
 
             move_piece(move_from, move_to, can_capture)
+            return True
         elif re.match("[a-h][1-8]\*?$", line):
             display_moves(line)
+            return True
         else:
             print("ERROR: INVALID INPUT. PLEASE TRY AGAIN.")
+            return False
 
 
 class Square:
@@ -106,7 +107,45 @@ def get_square(pos):
 
 class Player:
     def __init__(self, color):
+        self.__won = False
         self.__color = color
+
+    def take_turn(self, f, chessboard):
+        print(self.__color.upper() + " PLAYER'S TURN.")
+        line = input("Enter a move or a piece to see where it can go. ")
+        repeat = True
+        repeat = self.check_if_player_move_valid(f, line, repeat)
+        while repeat:
+            line = input("Enter a move or a piece to see where it can go. ")
+            repeat = self.check_if_player_move_valid(f, line, repeat)
+
+        self.check_if_won(chessboard)
+        chessboard.print_chessboard()
+
+    def check_if_player_move_valid(self, f, line, repeat):
+        if re.match('\s*[a-h][1-8]\s+[a-h][1-8]\*?$', line):
+            if get_square(line.split()[0]).has_piece():
+                if get_square(line.split()[0]).get_piece().get_color() != self.__color:
+                    print("You can't move the other player's piece!! Try again!")
+                else:
+                    repeat = False
+                    f.parse_input(line)
+            else:
+                print("There's nothing in that spot!! Try Again!")
+        elif re.match("[a-h][1-8]\*?$", line):
+            display_moves(line)
+        return repeat
+
+    def check_if_won(self, chessboard):
+        if self.__color == 'White':
+            if not chessboard.has_piece(' k '):
+                self.__won = True
+        else:
+            if not chessboard.has_piece(' K '):
+                self.__won = True
+
+    def won(self):
+        return self.__won
 
 
 def move_piece(move_from=None, move_to=None, can_capture=False):
@@ -195,13 +234,11 @@ class Piece(object):
     def remove_impossible_moves(self, possible_moves, chessboard):
         for move_to in possible_moves:
             # if there's no piece there
-            print(move_to)
             if re.match('[a-h][1-8]\s*$', move_to):
                 if not get_square(move_to).has_piece():
                     pass
                 # if color is the same, we don't want it moving there
                 elif self.get_color() == get_square(move_to).get_piece().get_color():
-                    print("REMOVED: " + move_to)
                     possible_moves.remove(move_to)
         if len(possible_moves) == 0:
             print("NO POSSIBLE MOVES!!!")
@@ -231,6 +268,11 @@ class Queen(Piece):
     def get_rep(self):
         return self.__rep
 
+    def get_moves(self, chessboard):
+        rook_moves = Rook.get_moves(self, chessboard)
+        bishop_moves = Bishop.get_moves(self, chessboard)
+        return rook_moves + bishop_moves
+
 
 class Bishop(Piece):
     def __init__(self, color, location):
@@ -241,11 +283,52 @@ class Bishop(Piece):
         return self.__rep
 
     def get_moves(self, chessboard):
-        possible_offsets = [(x, x) for x in range(-8, 8)]
-        possible_offsets.extend([(x, -x) for x in range(-8, 8)])
-        print(possible_offsets)
-        possible_moves = self.check_if_valid_move(possible_offsets)
-        possible_moves = self.remove_impossible_moves(possible_moves, chessboard)
+        possible_moves = []
+        for x in range(8):
+            print("X: " + str(x + 1))
+            move = self.check_if_valid_move([(x + 1, x + 1)])  # Going UpRight
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
+        for x in range(8):
+            move = self.check_if_valid_move([(x + 1, (x + 1) * -1)])  # Going Down
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
+        for x in range(8):
+            move = self.check_if_valid_move([((x + 1) * -1, x + 1)])  # Going Right
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
+        for x in range(8):
+            move = self.check_if_valid_move([((x + 1) * -1, (x + 1) * -1)])  # Going Left
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
         return possible_moves
 
 
@@ -317,16 +400,50 @@ class Rook(Piece):
         possible_moves = []
         for x in range(8):
             print("X: " + str(x + 1))
-            move1 = self.check_if_valid_move([(0, x + 1)])  # Going Up
+            move = self.check_if_valid_move([(0, x + 1)])  # Going Up
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
         for x in range(8):
-            print("X: " + str(x))
-            move2 = self.check_if_valid_move([(0, (x + 1) * -1)])  # Going Down
+            move = self.check_if_valid_move([(0, (x + 1) * -1)])  # Going Down
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
         for x in range(8):
-            print("X: " + str(x))
-            move3 = self.check_if_valid_move([(x + 1, 0)])  # Going Right
+            move = self.check_if_valid_move([(x + 1, 0)])  # Going Right
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
         for x in range(8):
-            print("X: " + str(x))
-            move4 = self.check_if_valid_move([((x + 1) * -1, 0)])  # Going Left
+            move = self.check_if_valid_move([((x + 1) * -1, 0)])  # Going Left
+            if len(move) > 0:
+                move = move[0]
+                if get_square(move).has_piece() and get_square(move).get_piece().get_color() != self.get_color():
+                    possible_moves.append(move)
+                    break
+                elif get_square(move).has_piece() and get_square(move).get_piece().get_color() == self.get_color():
+                    break
+                else:
+                    possible_moves.append(move)
+        return possible_moves
 
 
 class Main:
@@ -336,19 +453,17 @@ class Main:
     player2 = Player('Black')
 
     # Sets up the board
-    places = f.read_file("input1.log")
+    places = f.read_file("input2.log")
 
     for line in places:
         print("LINE: " + line)
         f.parse_input(line)
         chessboard.print_chessboard()
 
-    # Starts game
-    line = ""
-    while line != "ESC" and (chessboard.has_piece(' K ') and chessboard.has_piece(' k ')):
-        line = input("Enter a move or a piece to see where it can go. Type ESC to exit. ")
-        f.parse_input(line)
-        chessboard.print_chessboard()
+    while not player1.won() and not player2.won():
+        player1.take_turn(f, chessboard)
+        if not player1.won():
+            player2.take_turn(f, chessboard)
 
 
 if __name__ == 'main':
