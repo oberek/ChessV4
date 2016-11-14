@@ -144,10 +144,12 @@ def display_moves(line):
     if piece is not None:
         piece_moves = piece.get_moves(Chessboard.chess_board)
         print("Possible Moves!!!: " + str(piece_moves))
-        return piece_moves
+        if piece_moves is not None:
+            return piece_moves
+        return []
     else:
         print("Not a valid Piece! Select again!")
-        return ""
+        return []
 
 
 '''
@@ -275,11 +277,11 @@ class Pawn(Piece):
         move_directions = []
         if self.get_color() == 'Black':
             move_directions.append((0, -1))
-            if '7' in self.get_location():
+            if '7' in self.get_location() and not get_square((self.get_location()[0]) + str(6)).has_piece():
                 move_directions.append((0, -2))
         else:
             move_directions.append((0, 1))
-            if '2' in self.get_location():
+            if '2' in self.get_location() and not get_square((self.get_location()[0]) + str(3)).has_piece():
                 move_directions.append((0, 2))
         possible_offsets = self.check_if_valid_move(move_directions)
         for move in possible_offsets:
@@ -310,6 +312,21 @@ class Rook(Piece):
 
     def get_rep(self):
         return self.__rep
+
+    def get_moves(self, chessboard):
+        possible_moves = []
+        for x in range(8):
+            print("X: " + str(x + 1))
+            move1 = self.check_if_valid_move([(0, x + 1)])  # Going Up
+        for x in range(8):
+            print("X: " + str(x))
+            move2 = self.check_if_valid_move([(0, (x + 1) * -1)])  # Going Down
+        for x in range(8):
+            print("X: " + str(x))
+            move3 = self.check_if_valid_move([(x + 1, 0)])  # Going Right
+        for x in range(8):
+            print("X: " + str(x))
+            move4 = self.check_if_valid_move([((x + 1) * -1, 0)])  # Going Left
 
 
 class Main:
