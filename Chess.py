@@ -26,6 +26,7 @@ class FileIO:
                     square.set_piece(piece)
                     get_square(line[2:4]).set_piece(piece)
             return False
+
         elif re.match('\s*[a-h][1-8]\s+[a-h][1-8]\*?$', line):
             move_from = line.split()[0].strip()
             move_to = line.split()[1].strip()
@@ -35,11 +36,13 @@ class FileIO:
                 can_capture = True
                 move_to = move_to.replace('*', '')
 
-            move_piece(move_from, move_to, can_capture)
-            return True
+            result = move_piece(move_from, move_to, can_capture)
+            return result
+
         elif re.match("[a-h][1-8]\*?$", line):
             display_moves(line)
             return True
+
         else:
             print("ERROR: INVALID INPUT. PLEASE TRY AGAIN.")
             return False
@@ -128,8 +131,8 @@ class Player:
                 if get_square(line.split()[0]).get_piece().get_color() != self.__color:
                     print("You can't move the other player's piece!! Try again!")
                 else:
-                    repeat = False
-                    f.parse_input(line)
+                    repeat = not f.parse_input(line)
+                    print("REPEAT: " + str(repeat))
             else:
                 print("There's nothing in that spot!! Try Again!")
         elif re.match("[a-h][1-8]\*?$", line):
@@ -170,10 +173,11 @@ def move_piece(move_from=None, move_to=None, can_capture=False):
                         get_square(move_to).set_piece(piece)
                         get_square(move_from).set_piece(None)
                         print(get_square(move_to).get_loc())
-                    print("THERE's A PIECE HERE")
+                return True
 
             else:
                 print("ERROR: INVALID MOVE!!!")
+                return False
     else:
         print("ERROR: No Piece in that Spot!!!")
 
@@ -383,7 +387,7 @@ class Pawn(Piece):
                     if get_square(move).get_piece().get_color() == 'Black':
                         possible_offsets.append(move)
 
-        print(possible_offsets)
+        print("Possible Moves Tile Selected: " + str(possible_offsets))
         return possible_offsets
 
 
@@ -398,7 +402,6 @@ class Rook(Piece):
     def get_moves(self, chessboard):
         possible_moves = []
         for x in range(8):
-            print("X: " + str(x + 1))
             move = self.check_if_valid_move([(0, x + 1)])  # Going Up
             if len(move) > 0:
                 move = move[0]
