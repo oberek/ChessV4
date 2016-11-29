@@ -8,6 +8,10 @@ from PyQt5.QtWidgets import QWidget
 import time
 
 logfile = open("chess.log", 'w')
+types_in_english = {'K': "King", 'Q': "Queen", 'B': "Bishop", 'R': "Rook", 'N': "Knight", 'P': "Pawn"}
+colors = {'l': 'White', 'd': 'Black'}
+Player_One = None
+Player_Two = None
 
 
 class FileIO:
@@ -16,10 +20,6 @@ class FileIO:
         return file
 
     def line_to_piece(self, line):
-        types_in_english = {'K': "King", 'Q': "Queen", 'B': "Bishop", 'R': "Rook", 'N': "Knight", 'P': "Pawn"}
-        types = {'K': King, 'Q': Queen, 'B': Bishop, 'R': Rook, 'N': Knight, 'P': Pawn}
-        colors = {'l': 'White', 'd': 'Black'}
-
         piece_type = types[line[:1]]
         color = colors[line[1:2]]
         location = line[-2:]
@@ -54,10 +54,8 @@ class FileIO:
 
 
 class Square:
-    __piece = None
-    __location = None
-
     def __init__(self, location):
+        self.__piece = None
         self.__location = location
 
     def get_piece(self):
@@ -73,6 +71,25 @@ class Square:
         if self.__piece is not None:
             return True
         return False
+
+
+def promote_pawn(chessboard, move_to, piece):
+    if 'p' in piece.get_rep().lower():
+        if '8' in piece.get_location() or '1' in piece.get_location():
+            square = chessboard.get_square(move_to)
+            color = piece.get_color()
+            response = ' '
+            while response not in 'RQBN':
+                player = Player_One if piece.get_color() == 'White' else Player_Two
+                if player.get_nature() == 'Human':
+                    response = input(
+                        "Pawn Promoted! What piece would you like to Promote the Pawn to? [n]Knight [q]Queen [r]Rook [b]Bishop: "
+                    ).upper().strip()
+                else:
+                    response = random.choice(['N', 'Q', 'R', 'B'])
+                    print("Pawn on " + move_to + " Promoted via AI into a " + types_in_english[response])
+
+            square.set_piece(types[response](color, move_to))
 
 
 class Chessboard(object):
@@ -92,7 +109,7 @@ class Chessboard(object):
                 print(square.get_piece().get_rep())
             else:
                 print(square.get_piece().get_rep(), end='')
-        print('')
+        print()
 
     def clear_board(self):
         for square in self.chess_board:
@@ -164,7 +181,7 @@ class Chessboard(object):
                         self.get_square(move_from).set_piece(None)
 
                     # if there is a piece in that spot
-                    elif piece.get_color != self.get_square(move_to).get_piece().get_color():
+                    elif piece.get_color() != self.get_square(move_to).get_piece().get_color():
                         print(
                             "Captured " + self.get_square(move_to).get_piece().get_color() + " " + types_in_english[
                                 self.get_square(move_to).get_piece().get_rep().strip().upper()])
@@ -172,13 +189,10 @@ class Chessboard(object):
                         self.get_square(move_to).set_piece(piece)
                         self.get_square(move_from).set_piece(None)
                         print(self.get_square(move_to).get_loc())
-                    '''
-                    PAWN PROMOTION
-                    if 'p' in piece.get_rep().lower():
-                        if '8' in piece.get_location() or '1' in piece.get_location():
-                            square = chessboard.get_square(move_to)
-                            square.set_piece(types_in_english[input("Pawn Promoted! What piece would you like to Promote the Pawn to? [n]Knight [q]Queen [r]Rook").upper().strip()])
-                    '''
+
+                    # PAWN PROMOTION
+                    promote_pawn(chessboard, move_to, piece, )
+
                     return True
 
                 else:
@@ -191,7 +205,6 @@ class Chessboard(object):
         piece = self.get_square(line.strip()).get_piece()
         if piece is not None:
             piece_moves = piece.get_moves(chessboard)
-            print("Possible Moves!!!: " + str(piece_moves))
             if piece_moves is not None:
                 return piece_moves
             return []
@@ -209,9 +222,6 @@ class Chessboard(object):
         return attackers
 
 
-types_in_english = {'K': "King", 'Q': "Queen", 'B': "Bishop", 'R': "Rook", 'N': "Knight", 'P': "Pawn"}
-
-
 class Player:
     def __init__(self, color, name):
         self.__name = name
@@ -220,12 +230,13 @@ class Player:
         self.__has_king_in_check = False
         self.__color = color
 
+    def get_nature(self):
+        return self.__nature
+
     def take_turn(self, f, chessboard):
         print(self.__color.upper() + " PLAYER'S TURN.")
-        king = chessboard.get_king(self.__color)
         king_in_check = self.check_if_in_check(chessboard)
         repeat = True
-        line = ''
         if king_in_check:
             print(self.__color + " King is in check!")
         if self.__nature != 'AI':
@@ -242,7 +253,7 @@ class Player:
                     print("NO POSSIBLE MOVES; CHECKMATE")
                     sys.exit("DONE")
 
-        print("LINE: " + line)
+        print("CHOICE: " + line)
         repeat = self.check_if_player_move_valid(f, line, chessboard, repeat, king_in_check)
 
         while repeat and chessboard.get_king(self.__color) is not None:
@@ -328,6 +339,7 @@ class Player:
                         for move_to in piece.get_moves(chessboard):
                             # should return a move in terms of a1 a3
                             move = piece.get_location() + ' ' + move_to
+                            print("POSSIBLE MOVE: " + move)
                             # BLOODTHIRSTY AI
                             if chessboard.get_square(move_to).has_piece():
                                 # This way, it adds it three times, so it has a higher probability of choosing it
@@ -391,15 +403,6 @@ class Piece(object):
             return []
         return possible_moves
 
-    def remove_king_bad_moves(self, possible_moves, chessboard):
-        moves = possible_moves
-        for move in possible_moves:
-            if chessboard.get_square(move).has_piece:
-                piece = chessboard.get_square(move).get_piece()
-                if piece is not None and piece.get_color() == self.get_color():
-                    moves.remove(move)
-        return moves
-
 
 class King(Piece):
     def __init__(self, color, location):
@@ -415,6 +418,15 @@ class King(Piece):
 
     def is_in_check(self):
         return self.__in_check
+
+    def remove_king_bad_moves(self, possible_moves, chessboard):
+        moves = possible_moves
+        for move in possible_moves:
+            if chessboard.get_square(move).has_piece():
+                piece = chessboard.get_square(move).get_piece()
+                if piece.get_color() == self.get_color():
+                    moves.remove(move)
+        return moves
 
     def get_moves(self, chessboard):
         move_directions = [(1, 1), (1, 0), (1, -1), (0, -1), (0, 1), (-1, -1), (-1, 0), (-1, 1)]
@@ -621,6 +633,9 @@ class Rook(Piece):
         return possible_moves
 
 
+types = {'K': King, 'Q': Queen, 'B': Bishop, 'R': Rook, 'N': Knight, 'P': Pawn}
+
+
 def main():
     '''
     app = QApplication(sys.argv)
@@ -635,8 +650,9 @@ def main():
     chessboard = Chessboard()
     player1_name = input("Enter Player 1 Name or Leave It Blank for AI: ")
     player2_name = input("Enter Player 2 Name or Leave It Blank for AI: ")
-    player1 = Player('White', player1_name)
-    player2 = Player('Black', player2_name)
+    global Player_One, Player_Two
+    Player_One = Player('White', player1_name)
+    Player_Two = Player('Black', player2_name)
     player1_name = "Player 1 (AI)"
     player2_name = "Player 2 (AI)"
     begin_time = time.time()
@@ -650,18 +666,18 @@ def main():
             f.parse_input(line, chessboard)
             chessboard.print_chessboard()
 
-        while not player1.won() and not player2.won():
-            player1.take_turn(f, chessboard)
-            if not player1.won():
-                player2.take_turn(f, chessboard)
+        while not Player_One.won() and not Player_Two.won():
+            Player_One.take_turn(f, chessboard)
+            if not Player_One.won():
+                Player_Two.take_turn(f, chessboard)
 
         print("FINAL BOARD")
         chessboard.print_chessboard()
     except IndexError:
         print("OUT OF BOUNDS")
-    if player1.won():
+    if Player_One.won():
         print(player1_name + " has won the game!")
-    elif player2.won():
+    elif Player_Two.won():
         print(player2_name + " has won the game!")
     else:
         print("GAME CRASHED WITHOUT ANYONE WINNING")
